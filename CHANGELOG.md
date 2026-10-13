@@ -2,6 +2,18 @@
 
 Version convention: below 1.0, an addition is a patch and a breaking change is a minor (npm reads `^0.1.2` as 0.1.x only, so templates take a patch on their own and hold a minor for a person).
 
+## 0.3.5 (2026-10-13)
+
+- **Photos sent together carry a batch mark, and the archive shows them as one tile.** With
+  `multiPhoto` on, each photo of a Send of two or more files with `batch: { id, index, size }`
+  (a random id per Send kept across a retry, the photo's place from 0 in the order picked, and how
+  many were sent). The server stores exactly those three fields, refuses a batch when the option is
+  off or the mark is not valid (id of 8 to 40 letters, digits, `-` or `_`; size 2 to 10; place below
+  size) before the app's pipeline is touched, and writes nothing for a single photo. `Snap.batch`
+  and `SnapRow.batch` carry it. `SnapsArchive` draws the photos of one batch on one day as one tile:
+  the first of them, with `+N`, opening that first one. Each photo is still its own snap, with its
+  own hearts, comments and seen. A snap filed without a batch reads exactly as before.
+
 ## 0.3.4 (2026-10-13)
 
 - **`multiPhoto: true`: pick several photos at once, one caption.** With the option on, the Photo

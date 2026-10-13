@@ -43,6 +43,7 @@ export interface FiledMedia {
 // The optional fields are written only by an app that turned their option on: `justUs` (always
 // true when present), `tags` (never empty), `witnessedBy` (the audience kind's per-person seen),
 // `voice` (a voice snap's recording and words).
+export interface SnapBatch { id: string; index: number; size: number }
 export interface Snap<M extends string = string> {
   id: string; by: M; caption: string
   kind: SnapKind; takenAt: string; width: number; height: number
@@ -54,6 +55,8 @@ export interface Snap<M extends string = string> {
   hiddenAt: string | null
   justUs?: true
   tags?: string[]
+  /** Set when several photos were sent together: the send's id, this photo's place in it (from 0) and how many were sent. */
+  batch?: SnapBatch
   comments?: Comment<M>[]
   reactions?: EmojiReaction<M>[]
   createdAt: string

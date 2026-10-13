@@ -44,4 +44,12 @@ describe('postSnap with the share sheet\'s switches', () => {
       expect(f.body).not.toHaveProperty('tags')
     }
   })
+  it('files a photo with the batch it was sent in', async () => {
+    await postSnap(new File(['raw'], 'a.jpg', { type: 'image/jpeg' }), 'x', { extra: { batch: { id: 'batch-0001', index: 1, size: 3 } } })
+    expect(filings[0].body.batch).toEqual({ id: 'batch-0001', index: 1, size: 3 })
+  })
+  it('writes no batch key when there is none', async () => {
+    await postSnap(new File(['raw'], 'a.jpg', { type: 'image/jpeg' }), 'x', { extra: { justUs: true } })
+    expect(filings[0].body).not.toHaveProperty('batch')
+  })
 })

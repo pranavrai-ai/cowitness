@@ -12,7 +12,7 @@ import { spokenLanguage } from '../language.js'
 import { parsePromptPatch, promptsDue, validPromptTimes } from '../prompts.js'
 import { zoned } from '../zoned.js'
 import { circleOf, resolveFeatures, type Circle, type CowitnessFeatures } from '../features.js'
-import { TAGS_MAX_DEFAULT, validateJustUs, validateTags } from '../tag-rules.js'
+import { validateBatch, TAGS_MAX_DEFAULT, validateJustUs, validateTags } from '../tag-rules.js'
 import {
   VOICE_UPLOADER_KEY, assertMayRetranscribeVoice, failVoiceTranscript, isVoiceRun, markVoiceTranscribing, newVoiceSnap, setVoiceTranscript,
   validateClientId, voiceSnapPath, voiceSnapPaths,
@@ -103,12 +103,14 @@ export function createCowitnessStore<M extends string>(host: CowitnessHost<M>) {
   // The photo went up on the app's own upload ticket, exactly as an album photo does; this files it
   // as a snap. The caption is checked first, so a bad one never costs the ticket.
   async function finalizeSnapPhoto(
-    m: M, photoId: string, input: { caption?: unknown; clientTakenAt?: string; justUs?: unknown; tags?: unknown },
+    m: M, photoId: string, input: { caption?: unknown; clientTakenAt?: string; justUs?: unknown; tags?: unknown; batch?: unknown },
   ): Promise<Snap<M>> {
     const caption = validateCaption(input.caption)
     const extra = await filingExtras(m, input)
+    // Only a photo can be one of several sent together, and only when the app turned that on.
+    const batch = validateBatch(input.batch, features.multiPhoto)
     const ref = snaps().doc(photoId)
-    const data = await host.media.filePhoto(m, photoId, input.clientTakenAt, { ref, record: (media) => newSnap(m, media, caption, nowIso(), extra) as Omit<Snap<M>, 'id'> })
+    const data = await host.media.filePhoto(m, photoId, input.clientTakenAt, { ref, record: (media) => newSnap(m, media, caption, nowIso(), { ...extra, ...(batch ? { batch } : {}) }) as Omit<Snap<M>, 'id'> })
     return { id: photoId, ...data }
   }
 

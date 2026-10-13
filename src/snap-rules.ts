@@ -1,6 +1,6 @@
 import type { Member } from './types.js'
 import type { Circle } from './features.js'
-import type { Comment, CowitnessSummary, FiledMedia, Recording, Snap, SnapPatch } from './types.js'
+import type { Comment, CowitnessSummary, FiledMedia, Recording, Snap, SnapBatch, SnapPatch } from './types.js'
 import { TAGS_MAX_DEFAULT, validateJustUs, validateTags } from './tag-rules.js'
 import { RuleError, addComment, heartComment, lastMessageFromOther, validateClip, audioExtension, MESSAGE_MAX, NOTHING_HEARD } from './shared-rules.js'
 import { DISCUSSION_EMOJIS, setEmojiReaction } from './discussion.js'
@@ -46,12 +46,13 @@ export function assertCanShare(m: Member, ctx?: Circle): void {
   if (ctx?.witnessing === 'audience' && !ctx.sharers.has(m)) throw new RuleError('you cannot share here', 403)
 }
 
-export function newSnap(m: Member, media: FiledMedia, caption: string, now: string, extra: { justUs?: true; tags?: string[] } = {}): Omit<Snap, 'id'> {
+export function newSnap(m: Member, media: FiledMedia, caption: string, now: string, extra: { justUs?: true; tags?: string[]; batch?: SnapBatch } = {}): Omit<Snap, 'id'> {
   return {
     by: m, caption, kind: media.kind, takenAt: media.takenAt, width: media.width, height: media.height,
     paths: media.paths, ...(media.video ? { video: media.video } : {}),
     witnessedAt: null, hiddenAt: null, createdAt: now,
     ...(extra.justUs ? { justUs: true as const } : {}), ...(extra.tags?.length ? { tags: extra.tags } : {}),
+    ...(extra.batch ? { batch: extra.batch } : {}),
   }
 }
 

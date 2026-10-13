@@ -22,6 +22,9 @@ import { DANGER, HAIRLINE, INK, MUTED, ON_INK, PLACEHOLDER, SERIF } from './them
 // caption. Video, the two-shot camera and a voice note stay one snap at a time.
 export const MAX_PHOTOS_PER_SEND = 10
 
+// A random id for one Send of several photos (letters, digits, - and _, 8 to 40 of them).
+const newBatchId = () => (globalThis.crypto?.randomUUID?.().replace(/-/g, '') ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`).slice(0, 32)
+
 // Two ways to a snap and one way to send it. Take a snap opens the camera and Choose a photo
 // opens the library; both happen inside the tap, or iOS refuses them. Either one ends as a file,
 // and the sheet rises on the file, for an optional caption and Send. Each option the app turned on
@@ -47,6 +50,9 @@ export function AddSnap({ tagChoices = [], languages, shares = false }: { tagCho
   // retry carries on from where it stopped.
   const [filed, setFiled] = useState(0)
   const batch = useRef(0)
+  // The mark that ties the photos of one Send together: made at the first Send of two or more, kept
+  // so a retry carries the same id and the places the photos were first given.
+  const marks = useRef<{ id: string; size: number; place: Map<File, number> } | null>(null)
   const [caption, setCaption] = useState('')
   const [state, setState] = useState<'idle' | 'sending' | 'failed'>('idle')
   // The back camera, asked for in the tap that opens the capture layer. Null: the layer is shut.
@@ -73,7 +79,7 @@ export function AddSnap({ tagChoices = [], languages, shares = false }: { tagCho
   // A snap the camera composed goes to the same sheet a picked photo goes to, with nothing
   // stored yet to reuse.
   const start = (next: File[], composed: boolean) => {
-    sent.current = new Map(); drawn.current = composed; batch.current = next.length; setFiled(0); setFiles(next)
+    sent.current = new Map(); marks.current = null; drawn.current = composed; batch.current = next.length; setFiled(0); setFiles(next)
   }
   const captured = (taken: File) => { setCamera(null); setNote(''); start([taken], true) }
 
@@ -92,7 +98,7 @@ export function AddSnap({ tagChoices = [], languages, shares = false }: { tagCho
   const pickInstead = () => { setCamera(null); photos.current?.click() }
 
   const close = () => {
-    setFiles([]); setNote(''); setFiled(0); batch.current = 0; setCaption(''); setState('idle'); setProgress(0); sent.current = new Map(); drawn.current = false
+    setFiles([]); setNote(''); setFiled(0); batch.current = 0; marks.current = null; setCaption(''); setState('idle'); setProgress(0); sent.current = new Map(); drawn.current = false
     if (voice && !heldForResend.current) void forget(indexedDbVault() ?? memoryVault(), voice.id).catch(() => {})
     heldForResend.current = false
     setVoice(null); setJustUs(false); setTag('')
@@ -118,13 +124,16 @@ export function AddSnap({ tagChoices = [], languages, shares = false }: { tagCho
       else {
         // One at a time, in the order picked: a weak connection fails one photo, not all of them.
         // A photo that is filed leaves the sheet, so a failure leaves exactly what is still to send.
+        if (!marks.current && files.length > 1) marks.current = { id: newBatchId(), size: files.length, place: new Map(files.map((x, i) => [x, i])) }
         for (const file of files) {
           setProgress(0)
+          const m = marks.current
+          const filing = m ? { ...extra, batch: { id: m.id, index: m.place.get(file) ?? 0, size: m.size } } : extra
           await postSnap(file, caption, {
             onProgress: setProgress, composed: drawn.current,
             ...(sent.current.has(file) ? { sent: sent.current.get(file)! } : {}),
             onSent: (s) => { sent.current.set(file, s) },
-            ...(Object.keys(extra).length ? { extra } : {}),
+            ...(Object.keys(filing).length ? { extra: filing } : {}),
           })
           landed += 1
           setFiled((n) => n + 1)

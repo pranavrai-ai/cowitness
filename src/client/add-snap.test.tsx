@@ -315,4 +315,55 @@ describe('AddSnap with several photos', () => {
     expect(screen.getByRole('dialog', { name: 'New snap' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull()
   })
+
+  it('marks the photos of one Send as one batch: the same id, their places in the order picked, and the size', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    const batches = vi.mocked(postSnap).mock.calls.map((c) => c[2]?.extra?.batch)
+    expect(batches.map((b) => [b?.index, b?.size])).toEqual([[0, 3], [1, 3], [2, 3]])
+    expect(new Set(batches.map((b) => b?.id)).size).toBe(1)
+    expect(batches[0]?.id).toMatch(/^[A-Za-z0-9_-]{8,40}$/)
+  })
+
+  it('a single photo is no batch', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('only.jpg'))
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    expect(vi.mocked(postSnap).mock.calls[0][2]?.extra?.batch).toBeUndefined()
+  })
+
+  it('a retry after a failure keeps the same batch id and the places they were first given', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    vi.mocked(postSnap).mockResolvedValueOnce().mockRejectedValueOnce(new Error('lost'))
+    await send()
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    const b = vi.mocked(postSnap).mock.calls.map((c) => c[2]?.extra?.batch)
+    expect(new Set(b.map((x) => x?.id)).size).toBe(1)
+    expect(b.map((x) => x?.index)).toEqual([0, 1, 1, 2])
+    expect(b.every((x) => x?.size === 3)).toBe(true)
+  })
+
+  it('takes a photo out before sending: the rest are a batch of the smaller size, re-numbered', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove b.jpg' }))
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    const b = vi.mocked(postSnap).mock.calls.map((c) => c[2]?.extra?.batch)
+    expect(b.map((x) => [x?.index, x?.size])).toEqual([[0, 2], [1, 2]])
+  })
+
+  it('removing down to one photo leaves no batch at all', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove b.jpg' }))
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    expect(vi.mocked(postSnap).mock.calls[0][2]?.extra?.batch).toBeUndefined()
+  })
 })

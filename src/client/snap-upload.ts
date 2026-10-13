@@ -1,4 +1,5 @@
 import { clientConfig } from './config.js'
+import type { SnapBatch } from '../types.js'
 import { toJpeg } from './reencode.js'
 import { postJson, takenAt } from './upload.js'
 import { sendVideoBytes } from './upload.js'
@@ -23,8 +24,10 @@ export interface SnapOptions {
   extra?: SnapExtra
 }
 
-export interface SnapExtra { justUs?: boolean; tags?: string[] }
+export interface SnapExtra { justUs?: boolean; tags?: string[]; batch?: SnapBatch }
 const extraBody = (extra?: SnapExtra) => ({ ...(extra?.justUs ? { justUs: true } : {}), ...(extra?.tags?.length ? { tags: extra.tags } : {}) })
+// Only a photo's filing carries the batch it was sent in.
+const photoBody = (extra?: SnapExtra) => ({ ...extraBody(extra), ...(extra?.batch ? { batch: extra.batch } : {}) })
 
 // A second filing of the same id is refused when the first one landed (the ticket is claimed and
 // gone) or when the stored copy can never be filed. Each app's pipeline words that refusal its own
@@ -71,7 +74,7 @@ async function fileSnap(file: File, caption: string, sent: SentSnap, retry: bool
       ...(stamp ? { takenAt: localWallClock(stamp) } : {}), ...extraBody(extra),
     })
     : await postJson(`${clientConfig().apiBase}/photo`, {
-      photoId: sent.photoId, caption, ...(shotAt ? { clientTakenAt: shotAt } : {}), ...extraBody(extra),
+      photoId: sent.photoId, caption, ...(shotAt ? { clientTakenAt: shotAt } : {}), ...photoBody(extra),
     })
   if (done.ok) return 'filed'
   const reason = await refusal(done)

@@ -10,6 +10,10 @@ const view = (o: Partial<SnapView> = {}): SnapView => ({
 })
 
 describe('a snap as a row', () => {
+  it('carries the batch a photo was sent in, only when it has one', () => {
+    expect(snapRow(view({ batch: { id: 'batch-0001', index: 1, size: 3 } }))).toMatchObject({ batch: { id: 'batch-0001', index: 1, size: 3 } })
+    expect(snapRow(view())).not.toHaveProperty('batch')
+  })
   it('carries what the archive draws and nothing it does not', () => {
     expect(snapRow(view(), 'https://img/t')).toEqual({
       id: 's1', by: 'ben', caption: 'lunch', kind: 'photo', thumbUrl: 'https://img/t', durationSec: null,

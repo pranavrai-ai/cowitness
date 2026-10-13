@@ -7,13 +7,13 @@ const id = (v: unknown, name: string): string => {
 }
 
 // The caption is passed through untouched; validateCaption in the store is its one judge.
-export function parseSnapPhotoBody(body: unknown): { photoId: string; caption?: unknown; clientTakenAt?: string; justUs?: unknown; tags?: unknown } {
+export function parseSnapPhotoBody(body: unknown): { photoId: string; caption?: unknown; clientTakenAt?: string; justUs?: unknown; tags?: unknown; batch?: unknown } {
   const b = (body ?? {}) as Record<string, unknown>
   return {
     photoId: id(b.photoId, 'photoId'),
     caption: b.caption,
     clientTakenAt: typeof b.clientTakenAt === 'string' ? b.clientTakenAt : undefined,
-    ...('justUs' in b ? { justUs: b.justUs } : {}), ...('tags' in b ? { tags: b.tags } : {}),
+    ...('justUs' in b ? { justUs: b.justUs } : {}), ...('tags' in b ? { tags: b.tags } : {}), ...('batch' in b ? { batch: b.batch } : {}),
   }
 }
 

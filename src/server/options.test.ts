@@ -484,3 +484,51 @@ describe('the streak in the audience kind', () => {
     expect((await store.listCowitness('ben')).streak.map((r) => r.id)).toEqual(['p1'])
   })
 })
+
+
+describe('a batch mark on photos sent together', () => {
+  const batch = (index: number, over: Record<string, unknown> = {}) => ({ id: 'batch-0001', index, size: 3, ...over })
+  const on = { witnessing: 'audience', justUs: true, tags: true, multiPhoto: true } as CowitnessHost<M>['features']
+
+  it('is stored on each snap, with the id, the place in the send and the size', async () => {
+    const { host, routes, f } = setup(on)
+    as(host, 'ana')
+    for (let i = 0; i < 3; i++) expect((await routes.photo.POST(post({ photoId: `p${i}`, batch: batch(i) }))).status).toBe(200)
+    expect(f.raw('snaps', 'p0')).toMatchObject({ batch: { id: 'batch-0001', index: 0, size: 3 } })
+    expect(f.raw('snaps', 'p2')).toMatchObject({ batch: { id: 'batch-0001', index: 2, size: 3 } })
+  })
+  it('is written only when present, so a snap filed without one is what it always was', async () => {
+    const { host, routes, f } = setup(on)
+    as(host, 'ana')
+    await routes.photo.POST(post({ photoId: 'p1' }))
+    expect(f.raw('snaps', 'p1')).not.toHaveProperty('batch')
+  })
+  it('is refused when several photos at once is not on, before the pipeline is touched', async () => {
+    const { host, routes } = setup()
+    as(host, 'ana')
+    const res = await routes.photo.POST(post({ photoId: 'p1', batch: batch(0) }))
+    expect(res.status).toBe(400)
+    expect(host.media.filePhoto).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['an id that is too short', batch(0, { id: 'abc' })],
+    ['an id with characters that do not belong', batch(0, { id: 'batch 0001/../x' })],
+    ['a size of one, which is not a batch', batch(0, { size: 1 })],
+    ['a size over the ten a send may hold', batch(0, { size: 11 })],
+    ['a place past the end of the send', batch(3)],
+    ['a negative place', batch(-1)],
+    ['a place that is not a whole number', batch(0.5)],
+    ['something that is not an object', 'batch-0001'],
+  ])('is refused with %s', async (_why, bad) => {
+    const { host, routes } = setup(on)
+    as(host, 'ana')
+    expect((await routes.photo.POST(post({ photoId: 'p1', batch: bad }))).status).toBe(400)
+    expect(host.media.filePhoto).not.toHaveBeenCalled()
+  })
+  it('is carried by a "just us" send the same way: the whole batch is just us together', async () => {
+    const { host, routes, f } = setup(on)
+    as(host, 'ana')
+    await routes.photo.POST(post({ photoId: 'p0', justUs: true, batch: batch(0) }))
+    expect(f.raw('snaps', 'p0')).toMatchObject({ justUs: true, batch: { id: 'batch-0001' } })
+  })
+})

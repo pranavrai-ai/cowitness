@@ -72,4 +72,33 @@ describe('SnapsArchive with options', () => {
     expect(screen.queryByLabelText('Just us')).toBeNull()
     expect(container.querySelectorAll('p')).toHaveLength(1)
   })
+
+  it('shows photos sent together as one tile: the first of them, with how many more, opening that first one', () => {
+    const b = (index: number) => ({ id: 'batch-0001', index, size: 3 })
+    render(<SnapsArchive me="ana" names={NAMES} rows={[
+      row({ id: 'c', batch: b(2) }), row({ id: 'b', batch: b(1) }), row({ id: 'a', batch: b(0) }), row({ id: 'solo', caption: 'alone' }),
+    ]} />)
+    const links = screen.getAllByRole('link')
+    expect(links).toHaveLength(2)
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(['/cowitness/a', '/cowitness/solo'])
+    expect(screen.getByLabelText('2 more photos')).toHaveTextContent('+2')
+  })
+
+  it('counts only the photos that are there: a hidden or missing one does not count', () => {
+    const b = (index: number) => ({ id: 'batch-0001', index, size: 4 })
+    render(<SnapsArchive me="ana" names={NAMES} rows={[row({ id: 'b', batch: b(1) }), row({ id: 'd', batch: b(3) })]} />)
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/cowitness/b'])
+    expect(screen.getByLabelText('1 more photo')).toHaveTextContent('+1')
+  })
+
+  it('does not join the photos of different batches, or of one batch on different days', () => {
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+    const b = (id: string, index: number) => ({ id, index, size: 2 })
+    render(<SnapsArchive me="ana" names={NAMES} rows={[
+      row({ id: 'x0', batch: b('batch-aaaa', 0) }), row({ id: 'y0', batch: b('batch-bbbb', 0) }),
+      row({ id: 'x1', batch: b('batch-aaaa', 1), createdAt: yesterday.toISOString() }),
+    ]} />)
+    expect(screen.getAllByRole('link')).toHaveLength(3)
+    expect(screen.queryByLabelText(/more photo/)).toBeNull()
+  })
 })
