@@ -1,5 +1,5 @@
 'use client'
-import { clientConfig } from './config.js'
+import { clientConfig, clientFeatures } from './config.js'
 
 import Link from 'next/link'
 import { useState } from 'react'
@@ -34,6 +34,8 @@ function collapse(rows: SnapRow[]): { row: SnapRow; more: number }[] {
 
 export function SnapsArchive({ rows, me, names, empty = 'Nothing shared yet. Add a snap from your day.', tagLabels }: { rows: SnapRow[]; me: Member; names: MemberNames; empty?: string; tagLabels?: Record<string, string> }) {
   const [now] = useState(() => new Date())
+  // With several photos at once on, a tile says what its snap says, once, under it.
+  const captions = clientFeatures().multiPhoto
   if (rows.length === 0) {
     return <p className="px-6 py-12 text-center text-[17px]" style={{ color: MUTED, fontFamily: SERIF }}>{empty}</p>
   }
@@ -45,18 +47,35 @@ export function SnapsArchive({ rows, me, names, empty = 'Nothing shared yet. Add
           <ol className="grid grid-cols-3 gap-1.5">
             {collapse(g.rows).map(({ row: r, more }) => (
               <li key={r.id}>
-                <Link href={`${clientConfig().pageBase}/${r.id}`} prefetch={false} className="relative block aspect-square overflow-hidden rounded-xl" style={{ backgroundColor: HAIRLINE }}>
-                  {r.kind === 'voice'
-                    ? <span className="flex h-full w-full items-center p-2 text-left text-[12px] leading-snug" style={{ color: INK, fontFamily: SERIF }}>{r.words || 'Voice note'}</span>
-                    : r.thumbUrl
-                    // eslint-disable-next-line @next/next/no-img-element -- signed, expiring storage URL
-                    ? <img src={r.thumbUrl} alt={r.caption || `Snap from ${names[r.by]}`} className={`h-full w-full object-cover ${r.hidden ? 'opacity-40' : ''}`} />
-                    : <NoPoster />}
-                  {r.kind === 'video' && <VideoMark durationSec={r.durationSec ?? undefined} small />}
-                  {more > 0 && <span aria-label={`${more} more photo${more === 1 ? '' : 's'}`} className="absolute bottom-1 right-1 rounded-full px-1.5 text-[11px] font-medium" style={{ backgroundColor: INK, color: ON_INK }}>+{more}</span>}
-                  {r.hidden && <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-medium" style={{ color: INK }}>Hidden</span>}
-                  {r.justUs && <span aria-label="Just us" className="absolute right-1 top-1 text-[11px]" style={{ color: INK }}>🔒</span>}
-                </Link>
+                {(() => {
+                  const stacked = more > 0
+                  const inner = (
+                    <>
+                      {r.kind === 'voice'
+                        ? <span className="flex h-full w-full items-center p-2 text-left text-[12px] leading-snug" style={{ color: INK, fontFamily: SERIF }}>{r.words || 'Voice note'}</span>
+                        : r.thumbUrl
+                        // eslint-disable-next-line @next/next/no-img-element -- signed, expiring storage URL
+                        ? <img src={r.thumbUrl} alt={r.caption || `Snap from ${names[r.by]}`} className={`h-full w-full object-cover ${r.hidden ? 'opacity-40' : ''}`} />
+                        : <NoPoster />}
+                      {r.kind === 'video' && <VideoMark durationSec={r.durationSec ?? undefined} small />}
+                      {r.hidden && <span className="absolute inset-x-0 bottom-1 text-center text-[11px] font-medium" style={{ color: INK }}>Hidden</span>}
+                      {r.justUs && <span aria-label="Just us" className="absolute right-1 top-1 text-[11px]" style={{ color: INK }}>🔒</span>}
+                    </>
+                  )
+                  return (
+                    <Link href={`${clientConfig().pageBase}/${r.id}`} prefetch={false} className={`relative block aspect-square ${stacked ? '' : 'overflow-hidden rounded-xl'}`} style={stacked ? undefined : { backgroundColor: HAIRLINE }}>
+                      {stacked ? (
+                        <>
+                          {more > 1 && <span data-stack-layer aria-hidden="true" className="absolute inset-x-3 bottom-0 top-0 rounded-xl" style={{ backgroundColor: HAIRLINE, filter: 'brightness(0.88)' }} />}
+                          <span data-stack-layer aria-hidden="true" className="absolute inset-x-1.5 bottom-0 top-1 rounded-xl" style={{ backgroundColor: HAIRLINE, filter: 'brightness(0.94)' }} />
+                          <span className="absolute inset-x-0 bottom-0 top-2.5 overflow-hidden rounded-xl" style={{ backgroundColor: HAIRLINE }}>{inner}</span>
+                          <span aria-label={`${more + 1} photos`} className="absolute bottom-1.5 right-1.5 rounded-full px-1.5 text-[11px] font-medium" style={{ backgroundColor: INK, color: ON_INK }}>{more + 1}</span>
+                        </>
+                      ) : inner}
+                    </Link>
+                  )
+                })()}
+                {captions && r.caption && <p className="mt-1 truncate px-0.5 text-[12px]" style={{ color: INK }}>{r.caption}</p>}
                 <p className="mt-1 truncate px-0.5 text-[11px]" style={{ color: MUTED }}>
                   {r.by === me ? (r.witnessedAt ? 'Witnessed' : 'You') : names[r.by]}
                 </p>

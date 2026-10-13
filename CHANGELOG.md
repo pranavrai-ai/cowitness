@@ -2,6 +2,14 @@
 
 Version convention: below 1.0, an addition is a patch and a breaking change is a minor (npm reads `^0.1.2` as 0.1.x only, so templates take a patch on their own and hold a minor for a person).
 
+## 0.3.6 (2026-10-13)
+
+- **A batch is a folder tile, and tiles say what they say.** With `multiPhoto` on, the photos of one
+  Send on one day are one tile in `SnapsArchive`: the first photo with one photo peeking out behind
+  it for a pair and two for three or more, and a count of the photos in the corner (replacing the
+  `+N` of 0.3.5). Every tile also shows its snap's caption on one line under it. With the option off
+  nothing is drawn differently from 0.3.3.
+
 ## 0.3.5 (2026-10-13)
 
 - **Photos sent together carry a batch mark, and the archive shows them as one tile.** With
