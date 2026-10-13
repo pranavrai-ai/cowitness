@@ -4,7 +4,7 @@ import { DEFAULT_FEATURES, circleOf, resolveFeatures } from './features.js'
 describe('resolveFeatures', () => {
   it('turns nothing on by default: each other, the double camera, the per-person streak', () => {
     expect(resolveFeatures()).toEqual({
-      witnessing: 'each-other', voiceSnaps: false, justUs: false, tags: false, doubleCamera: true, prompts: false,
+      witnessing: 'each-other', voiceSnaps: false, justUs: false, tags: false, doubleCamera: true, prompts: false, multiPhoto: false,
       streak: { kind: 'each-and-together' }, home: 'open',
     })
     expect(resolveFeatures({})).toEqual(DEFAULT_FEATURES)

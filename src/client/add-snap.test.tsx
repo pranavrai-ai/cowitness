@@ -32,6 +32,9 @@ import { sendVoiceSnap } from './voice-snap.js'
 import { forget } from './recording-vault.js'
 
 const pick = (file: File) => fireEvent.change(screen.getByLabelText('Choose a photo'), { target: { files: [file] } })
+const jpg = (name: string) => new File([name], name, { type: 'image/jpeg' })
+const pickMany = (...files: File[]) => fireEvent.change(screen.getByLabelText('Choose a photo'), { target: { files } })
+const send = () => act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send' })) })
 
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:preview')
@@ -206,5 +209,110 @@ describe('AddSnap with options', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close' })) })
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New snap' })).toBeNull())
     expect(forget).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('AddSnap with several photos', () => {
+  const base = clientConfig()
+  beforeEach(() => { vi.mocked(postSnap).mockReset(); refresh.mockClear(); configure({ ...base, features: { multiPhoto: true } }) })
+  afterEach(() => configure(base))
+
+  it('is off unless the app turns it on: one photo, whatever the picker reports', () => {
+    configure(base)
+    render(<AddSnap />)
+    expect((screen.getByLabelText('Choose a photo') as HTMLInputElement).multiple).toBe(false)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'))
+    expect(screen.getByRole('dialog', { name: 'New snap' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull()
+  })
+
+  it('lets the photo picker take several, and the video picker only one', () => {
+    render(<AddSnap />)
+    expect((screen.getByLabelText('Choose a photo') as HTMLInputElement).multiple).toBe(true)
+    expect((screen.getByLabelText('Choose a video') as HTMLInputElement).multiple).toBe(false)
+  })
+
+  it('shows every picked photo with a way to take one out, under one caption', () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    expect(screen.getByRole('dialog', { name: '3 photos' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Remove / })).toHaveLength(3)
+    expect(screen.getAllByLabelText('Caption')).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove b.jpg' }))
+    expect(screen.getAllByRole('button', { name: /^Remove / })).toHaveLength(2)
+    expect(screen.getByRole('dialog', { name: '2 photos' })).toBeInTheDocument()
+  })
+
+  it('files each photo as its own snap, in the order picked, with the same caption and choices', async () => {
+    render(<AddSnap tagChoices={[{ id: 'first-smile', label: 'First smile' }]} shares />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    fireEvent.change(screen.getByLabelText('Caption'), { target: { value: 'at the park' } })
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    const calls = vi.mocked(postSnap).mock.calls
+    expect(calls.map((c) => (c[0] as File).name)).toEqual(['a.jpg', 'b.jpg', 'c.jpg'])
+    expect(calls.every((c) => c[1] === 'at the park')).toBe(true)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends one photo at a time', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'))
+    let release: () => void = () => {}
+    vi.mocked(postSnap).mockImplementation(() => new Promise<void>((r) => { release = r }))
+    await send()
+    expect(postSnap).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Sending 1 of 2')).toBeInTheDocument()
+    await act(async () => { release() })
+    expect(postSnap).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('Sending 2 of 2')).toBeInTheDocument()
+    await act(async () => { release() })
+  })
+
+  it('when one fails, keeps it and the rest, drops the ones already sent, and retries only those', async () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'), jpg('c.jpg'))
+    vi.mocked(postSnap)
+      .mockResolvedValueOnce()
+      .mockImplementationOnce(async (_f, _c, opts) => { opts?.onSent?.({ kind: 'photo', photoId: 'p2' }); throw new Error('filing lost') })
+    await send()
+    expect(screen.getByText('1 of 3 sent. Try again.')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Remove / })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Remove a.jpg' })).toBeNull()
+    expect(refresh).toHaveBeenCalledTimes(1)
+    vi.mocked(postSnap).mockResolvedValue()
+    await send()
+    const calls = vi.mocked(postSnap).mock.calls
+    expect(calls).toHaveLength(4)
+    expect((calls[2][0] as File).name).toBe('b.jpg')
+    expect(calls[2][2]).toMatchObject({ sent: { kind: 'photo', photoId: 'p2' } })
+    expect((calls[3][0] as File).name).toBe('c.jpg')
+    expect(calls[3][2]?.sent).toBeUndefined()
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
+  it('keeps the first ten of a bigger pick and says so', () => {
+    render(<AddSnap />)
+    pickMany(...Array.from({ length: 12 }, (_, i) => jpg(`p${i}.jpg`)))
+    expect(screen.getAllByRole('button', { name: /^Remove / })).toHaveLength(10)
+    expect(screen.getByText('Up to 10 at a time')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove p10.jpg' })).toBeNull()
+  })
+
+  it('a single photo still reads as a new snap, with no strip of its own to manage', () => {
+    render(<AddSnap />)
+    pickMany(jpg('only.jpg'))
+    expect(screen.getByRole('dialog', { name: 'New snap' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull()
+  })
+
+  it('a video pick is still one at a time and replaces any photos', () => {
+    render(<AddSnap />)
+    pickMany(jpg('a.jpg'), jpg('b.jpg'))
+    fireEvent.change(screen.getByLabelText('Choose a video'), { target: { files: [new File(['v'], 'v.mp4', { type: 'video/mp4' })] } })
+    expect(screen.getByRole('dialog', { name: 'New snap' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Remove / })).toBeNull()
   })
 })

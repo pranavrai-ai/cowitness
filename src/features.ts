@@ -22,11 +22,13 @@ export interface CowitnessFeatures {
   streak: StreakRule
   /** open: the home holds what nobody has witnessed yet, and the shelf what has been. today: the home holds the last 24 hours, witnessed or not, and the shelf everything older. Nothing is ever deleted either way. */
   home: HomeWindow
+  /** The photo picker takes several photos at once (up to 10), each filed as its own snap under one caption. */
+  multiPhoto: boolean
 }
 
 export const DEFAULT_FEATURES: Readonly<CowitnessFeatures> = Object.freeze({
   witnessing: 'each-other', voiceSnaps: false, justUs: false, tags: false, doubleCamera: true, prompts: false,
-  streak: Object.freeze({ kind: 'each-and-together' }) as StreakRule, home: 'open',
+  streak: Object.freeze({ kind: 'each-and-together' }) as StreakRule, home: 'open', multiPhoto: false,
 })
 
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/

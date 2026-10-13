@@ -2,6 +2,16 @@
 
 Version convention: below 1.0, an addition is a patch and a breaking change is a minor (npm reads `^0.1.2` as 0.1.x only, so templates take a patch on their own and hold a minor for a person).
 
+## 0.3.4 (2026-10-13)
+
+- **`multiPhoto: true`: pick several photos at once, one caption.** With the option on, the Photo
+  button takes up to 10 photos. The sheet shows them side by side with a way to take one out, and
+  one caption, Just us and tag for all of them. Send files each as its own snap, one at a time, in
+  the order picked ("Sending 2 of 5"). A photo that fails stops the run: the ones already filed
+  stay filed and leave the sheet, the rest stay to try again, and a photo whose bytes already
+  uploaded is filed from the stored copy rather than uploaded twice. Video, the two-shot camera
+  and voice notes stay one at a time. Off by default; with it off every screen is as it was.
+
 ## 0.3.3 (2026-10-13)
 
 - **`@supersuit/cowitness/camera`: the two-shot capture layer on its own.** `SnapCamera`,

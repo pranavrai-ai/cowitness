@@ -170,6 +170,7 @@ so is an option turned on without the host part it needs.
 | `prompts: true` | Capture reminders at each person's own times, one person per reminder, "not today" for a day. | `prompts`: `collection`, `timeZone`, `people()`, `save()`, `nudge()` | off | none on a snap; one claim per reminder sent in `prompts.collection` |
 | `streak: { kind: 'household', ... }` | One streak for everyone who shares, in one time zone, from a start date, with one free skip a week when `freeSkipsPerWeek` is 1. A person who only witnesses is shown no streak. | none | `{ kind: 'each-and-together' }` | none |
 | `doubleCamera: false` | The share sheet stops offering the double camera. | none | on | none |
+| `multiPhoto: true` | The Photo button takes several photos at once (up to 10). The sheet shows them with a way to take one out, one caption, and the same Just us and tag; each photo is filed as its own snap, one at a time, in the order picked. If one fails, the ones already filed stay filed and the rest stay in the sheet to try again without being filed twice. Video, the double camera and voice notes stay one at a time. | none | off | none (every photo is an ordinary snap) |
 | `home: 'today'` | The home holds the last 24 hours, witnessed or not, and the shelf (`listWitnessed`, the link reads "Earlier") holds everything older. Nothing is deleted; the streak still counts every snap. | none | `'open'`: the home holds what nobody has witnessed yet | none |
 
 A record without the new fields reads exactly as before. A snap filed "just us" stays private
